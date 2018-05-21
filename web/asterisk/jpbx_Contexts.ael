@@ -1,0 +1,15 @@
+context jpbxRoute{
+
+        t => Hangup;
+        h => {
+		System(mv /tmp/CALLBACK-${CHANNEL:4:4}.call /var/spool/asterisk/outgoing);
+		Noop(DESLIGADO ${CUT(CHANNEL,,1)});
+	}
+        #include "jpbx/features.ael";
+        switches{
+                Realtime/;
+                Realtime/ERROR@extensions;
+        }
+}
+
+

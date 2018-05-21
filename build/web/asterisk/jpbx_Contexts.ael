@@ -1,0 +1,22 @@
+context jpbxRoute{
+
+        t => Hangup;
+        h => {
+		System(mv /tmp/CALLBACK-${CHANNEL:4:4}.call /var/spool/asterisk/outgoing);
+		Noop(DESLIGADO ${CUT(CHANNEL,,1)} EMPRESA ${CDR(company)});
+	}
+        #include "jpbx/features.ael";
+        switches{
+                Realtime/;
+                Realtime/ERROR@extensions;
+        }
+}
+context ERROR{
+	t => Hangup;
+        h => Hangup;
+        i => {
+        	NoCdr();
+                PlayBack(invalid);
+        }
+}
+

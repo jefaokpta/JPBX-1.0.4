@@ -1,0 +1,53 @@
+/* 
+    Document   : cssJefao
+    Created on : 30/01/2013, 11:35:36
+    Author     : jefaokpta
+    Description: opa mexi memo
+        Purpose of the stylesheet follows.
+*/
+
+root { 
+    display: block;
+}
+body{
+    /*background: #999;*/
+    background-image: url('bootstrap/img/bgbody.png');
+}
+#container{
+    margin-top: 4%;
+    background-color: whitesmoke;
+    border-radius: 10px;
+    padding-bottom: 1%;
+}
+h3{
+    padding-left: 4%;
+}
+#frm{
+    padding-left: 5%;
+}
+/*
+em{
+    color: #75767a;
+    color: #000;
+}
+h3{
+    color: #75767a;
+    color: #000;
+    padding-left: 50px;
+}
+#alert div{
+    background: #000;
+}
+tr{
+    color: #1c9b1e;
+}
+th{
+    color: #0bfa0d;
+}
+div p{
+    color: #0bfa0d;
+}
+li a{
+    color: #fff;
+}
+*/

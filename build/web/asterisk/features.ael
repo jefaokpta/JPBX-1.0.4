@@ -1,0 +1,226 @@
+//Facilidades pra dar e vender
+//================================================
+//Login de Agentes
+	_*01XXXX =>{
+                Noop(LOGANDO AGENTE ${EXTEN:3} NO RAMAL ${CALLERID(num)});
+		Set(ID=${CALLERID(num):0:3});
+		Set(AGENT=${ID}${EXTEN:3});
+                Set(CHANNEL(language)=pt_BR);
+		if("${DB(Ramal/agent/${CALLERID(num)})}"==""){
+	again:		Set(ARRAY(NAME,PASS)=${ODBC_DATA_LOGIN(${AGENT})});
+			if("${NAME}"!=""){
+				if(${ODBC_TEST_AGENT(${AGENT}/${NAME})}>0){
+					Answer;
+					Read(AGENT,agent-alreadyon,4,,1,10);
+					if(${LEN(${AGENT})}==4){
+						Set(AGENT=${ID}${AGENT});
+						goto again;
+					}
+				}
+				else{
+					Answer;
+					Read(COD,agent-pass,4,,2,10);
+					if("${COD}"=="${PASS}"){
+						Agi(Vip/queues_agi.sh,${AGENT});
+	equip:					Read(SELECT,custom/escolha_equipe,2,,2,5);//ESCOLHA A EQUIPE
+						if("${SELECT}"!=""){
+							if(${SELECT}==0)
+								goto options;
+							for(count=1; ${count} <= ${QTDE}; count=${count}+1){
+								if("${SELECT}"=="${Q${count}}"){	
+									Noop(EQUIPE ${Q${count}} CONFERE NA LISTA);
+									Set(CHECK=1);
+									break;
+								}
+								else
+									Noop(EQUIPE ${Q${count}} NAO SELECIONADA VERIFICANDO PROXIMA);
+							}
+						}
+						else{
+	options:					Playback(custom/equipes_disponiveis);
+							SayNumber(${AGENT:3});
+							Wait(1);
+							for(option=1;${option} <= ${QTDE};option=${option}+1){
+								Playback(custom/codigo);
+								SayNumber(${Q${option}});
+								Wait(1);
+							}
+							Wait(1);
+							goto equip;
+						}
+						if("${CHECK}"=="1"){
+							Set(ARRAY(QUEUE,TYPE)=${ODBC_QUEUE(${SELECT})});
+							if("${TYPE}"=="R"){
+								Set(DB(Canal/agent/${CALLERID(num)})=${ODBC_RAMAL(${CALLERID(num)})});
+								Set(DB(Ramal/agent/${CALLERID(num)})=${AGENT});
+								Set(ODBC_LOGIN(${AGENT}/${NAME},${QUEUE},Local/${CALLERID(num)}@Agents/n)=1);
+							}
+							else{
+                                				Set(DB(Ramal/agent/${CALLERID(num)})=${AGENT});
+                                				Set(ODBC_LOGIN(${AGENT}/${NAME},${QUEUE},${CHANNEL:0:11})=1);
+							}
+                                			Noop(AGENTES ${QUEUE_MEMBER(${QUEUE})});
+                                			Playback(agent-loginok);
+						}		
+						else
+							Playback(invalid);
+				}
+				else{
+                                	Read(AGENT,agent-incorrect,4,,1,10);
+                                        if(${LEN(${AGENT})}==4){
+                                        	Set(AGENT=${ID}${AGENT});
+						goto again;
+					}
+                                }
+			}
+		}
+		else
+			Playback(invalid);
+        }
+	else
+        	Playback(custom/agente_neste_ramal);//EXISTE AGENTE LOGADO NESTE RAMAL
+	Hangup;
+}
+//====================================================
+//Logout dos mesmos
+	_*02XXXX =>{
+		Noop(DESLOGANDO AGENTE ${EXTEN:3} DO RAMAL ${ORG});
+		Set(AGENT=${CALLERID(num):0:3}${EXTEN:3});
+		if("${CALLERID(num)}"=="${AGENT}"){
+			Set(ARRAY(QUEUE,TYPE)=${ODBC_DATA_QUEUE_MEMBER(${AGENT})});
+			if("${TYPE}"=="R"){
+				Set(Removing=${DB_DELETE(Canal/agent/${ORG})});
+				Set(Remove=${DB_DELETE(Ramal/agent/${ORG})});
+				Set(ODBC_LOGOUT(Local/${ORG}@Agents/n)=1);//TRANSFORMAR EM VARIAVEL
+			}
+			else{
+				Set(Remove=${DB_DELETE(Ramal/agent/${ORG})});
+				Set(ODBC_LOGOUT(${CHANNEL:0:11},${AGENT})=1);//AKI TB
+			}
+			Noop(AGENTES ${QUEUE_MEMBER(${QUEUE})});
+                	Answer;
+                	Playback(agent-loggedoff);
+		}
+		else
+			Playback(custom/sem_agente_no_ramal);//NAO EXISTE AGENTE NESTE RAMAL
+		Hangup;
+	}
+//===================================================
+//Pause dos mesmos
+	_*03 =>{
+		Noop(AGENTE ${DB(Ramal/agent/${CALLERID(num)})} EM PAUSA);
+		Set(AGENT=${DB(Ramal/agent/${CALLERID(num)})});
+		if("${AGENT}"!=""){
+			Set(ARRAY(QUEUE,TYPE)=${ODBC_DATA_QUEUE_MEMBER(${AGENT})});
+			Set(CHANNEL(language)=pt_BR);
+			if("${TYPE}"="R")
+				PauseQueueMember(${QUEUE},Local/${CALLERID(num)}@agents/n);//OIA A VARIALVEL
+			else
+				PauseQueueMember(${QUEUE},${CHANNEL:0:8}); //AKI TOMEM
+                        System(echo "${STRFTIME(${EPOCH},,%H:%M:%S)}" > /var/www/vip/agi/${EXTEN:3}T.txt);//TA CERTO ISSO?
+                        Answer;
+                        Wait(1);
+                        Playback(activated);
+		}
+		else
+			Playback(custom/sem_agente_no_ramal);//SEM AGENTE LOGADO NO RAMAL
+                Hangup;
+	}
+//===================================================
+//UnPause dos mesmos
+        _*04 =>{
+                Noop(AGENTE ${DB(Ramal/agent/${CALLERID(num)})} DISPONIVEL);
+		Set(AGENT=${DB(Ramal/agent/${CALLERID(num)})});
+		if("${AGENT}"!=""){
+			Set(ARRAY(QUEUE,TYPE)=${ODBC_DATA_QUEUE_MEMBER(${AGENT})});
+                	Set(CHANNEL(language)=pt_BR);
+			if("${TYPE}"="R")
+				UnpauseQueueMember(${QUEUE},Local/${CALLERID(num)}@agents/n);//VARIAVEL
+			else
+				UnpauseQueueMember(${QUEUE},${CHANNEL:0:8});//AKI TOMEM
+                	Answer;
+			Wait(1);
+                	Playback(activated);
+		}
+		else
+                        Playback(custom/sem_agente_no_ramal);//SEM AGENTE LOGADO NO RAMAL
+		Hangup;
+        }
+//==================================================
+
+//Estacionamento (recuperação)
+	_*7[0-1][0-9] =>{
+		NoCDR();
+		ParkedCall(${EXTEN:1});
+	}
+//=================================================
+//Nao Perturbe Ativa
+	*21 =>{
+		NoCDR;
+		Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+		Set(ODBC_DND(${CUT(CHANNEL,,1)},1)=1);
+		Playback(activated);
+		Hangup;
+	}
+//=================================================
+//Nao Perturbe Desativa
+	*22 =>{
+		NoCDR;
+		Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+                Set(ODBC_DND(${CUT(CHANNEL,,1)},0)=1);
+                Playback(de-activated);
+                Hangup;
+	}
+//=================================================
+//Cadeado Ativa
+	*23 =>{
+		NoCDR;
+                Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+		Set(ODBC_LOCK(${CUT(CHANNEL,,1)},1)=1);
+		Playback(activated);
+                Hangup;
+	}
+//=================================================
+//Cadeado Desativa
+	*24 =>{
+		NoCDR;
+                Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+                Set(ODBC_LOCK(${CUT(CHANNEL,,1)},0)=1);
+                Playback(de-activated);
+                Hangup;
+	}
+//=================================================
+//Desvio Ativa
+	*25 =>{
+		NoCDR;
+                Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+		Read(FWD,agent-newlocation,,,2,30);
+		if("${FWD}"!=""){
+			Set(ODBC_FWD(${CUT(CHANNEL,,1)},${FWD})=1);
+			Playback(activated);
+		}
+		else
+			Playback(invalid);
+		Hangup;
+	}
+//=================================================
+//Desvio Desativa
+	*26 =>{
+		NoCDR;
+                Authenticate(${ODBC_GET_PASS_PEER(${CUT(CHANNEL,,1)})},,4);
+		Set(ODBC_FWD(${CUT(CHANNEL,,1)},0)=1);
+		Playback(de-activated);
+		Hangup;
+	}
+//=================================================
+//Captura
+	*8 =>{
+		Pickup(${ODBC_GRP_PICKUP(${ORG})}@PICKUPMARK);
+		Hangup;//teste
+	}
+//================================================
+//Consulta Voicemail
+	*30 =>{
+		VoiceMailMain(${CALLERID(num)});
+		Hangup;
+	}
